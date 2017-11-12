@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+import subprocess
+import os
+import sys
+from threading import Thread
+import datetime
+import time
+
+def force_exit(code):
+    os._exit(code)
+
+def print_usage():
+    print "Invalid usage, usage: {} <timeout> process...".format(sys.argv[0])
+    sys.exit(1)
+
+process_args = sys.argv[2:]
+
+if not process_args:
+    print_usage()
+
+timeout = 0
+try:
+    timeout = int(sys.argv[1])
+except ValueError:
+    print "Timeout value must be a number {}".format(sys.argv[1])
+    print_usage()
+    sys.exit(2)
+
+if timeout <= 0:
+    print "Timeout cannot be 0 or below"
+    print_usage()
+    sys.exit(2)
+
+last_write_time = datetime.datetime.now()
+proc = None
+
+def output_watch():
+    while True:
+        current_time = datetime.datetime.now()
+        diff = abs((current_time - last_write_time).seconds)
+        if diff > timeout:
+            sys.stderr.write("No output for {} seconds... Exiting!\n".format(timeout))
+            if proc != None:
+                proc.kill()
+            force_exit(3)
+            return
+        time.sleep(2)
+
+thread = Thread(target=output_watch)
+thread.start()
+
+try:
+    proc = subprocess.Popen(process_args, stdout=subprocess.PIPE)
+except OSError as e:
+    print "ERROR ({0}): {1}".format(e.errno, e.strerror)
+    sys.exit(e.errno)
+
+while True:
+    try:
+        line = proc.stdout.readline()
+        if line != '':
+            last_write_time = datetime.datetime.now()
+            os.write(1, line)
+        else:
+            break
+    except KeyboardInterrupt:
+        force_exit(130)
+
+proc.wait()
+
+force_exit(proc.returncode)
