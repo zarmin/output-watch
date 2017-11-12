@@ -11,3 +11,8 @@ CLI wrapper to kill a subprocess if it doesn't output for a while
 # Exit code will be 3
 ```
 
+## Deps
+
+- No external dependencies
+- Python 2.7
+
